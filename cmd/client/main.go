@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -39,7 +41,8 @@ func main() {
 
 	for {
 		fmt.Println("1: send request")
-		fmt.Println("2: exit")
+		fmt.Println("2: HelloServerStream")
+		fmt.Println("3: exit")
 		fmt.Print("please enter > ")
 
 		scanner.Scan()
@@ -49,6 +52,8 @@ func main() {
 		case "1":
 			Hello()
 		case "2":
+			HelloServerStream()
+		case "3":
 			fmt.Println("exit")
 			goto M
 		}
@@ -68,6 +73,34 @@ func Hello() {
 	if err != nil {
 		fmt.Println("error: ", err)
 	} else {
+		fmt.Println("response: ", res.Message)
+	}
+}
+
+func HelloServerStream() {
+	fmt.Println("please enter your name")
+	scanner.Scan()
+	name := scanner.Text()
+
+	req := &hellopb.HelloRequest{
+		Name: name,
+	}
+	stream, err := client.HelloServerStream(context.Background(), req)
+	if err != nil {
+		fmt.Println("error: ", err)
+		return
+	}
+
+	for {
+		res, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			fmt.Println("all the responses have been received")
+			break
+		}
+
+		if err != nil {
+			fmt.Println("error: ", err)
+		}
 		fmt.Println("response: ", res.Message)
 	}
 }
