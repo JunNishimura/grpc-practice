@@ -13,6 +13,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 var (
@@ -70,17 +71,28 @@ M:
 }
 
 func Hello() {
+	var header, trailer metadata.MD
 	fmt.Println("please enter your name")
+
+	ctx := context.Background()
+	md := metadata.New(map[string]string{
+		"type": "unary",
+		"from": "client",
+	})
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
 	scanner.Scan()
 	name := scanner.Text()
 
 	req := &hellopb.HelloRequest{
 		Name: name,
 	}
-	res, err := client.Hello(context.Background(), req)
+	res, err := client.Hello(ctx, req, grpc.Header(&header), grpc.Trailer(&trailer))
 	if err != nil {
 		fmt.Println("error: ", err)
 	} else {
+		fmt.Println("header: ", header)
+		fmt.Println("trailer: ", trailer)
 		fmt.Println("response: ", res.Message)
 	}
 }
@@ -143,7 +155,13 @@ func HelloClientStream() {
 }
 
 func HelloBiStreams() {
-	stream, err := client.HelloBiStreams(context.Background())
+	ctx := context.Background()
+	md := metadata.New(map[string]string{
+		"type": "bistream",
+		"from": "client",
+	})
+	ctx = metadata.NewOutgoingContext(ctx, md)
+	stream, err := client.HelloBiStreams(ctx)
 	if err != nil {
 		fmt.Println("error: ", err)
 		return
@@ -175,7 +193,16 @@ func HelloBiStreams() {
 			}
 		}
 
+		var headerMD metadata.MD
 		if !recvEnd {
+			if headerMD == nil {
+				headerMD, err = stream.Header()
+				if err != nil {
+					fmt.Println("error: ", err)
+				}
+				fmt.Println("header: ", headerMD)
+			}
+
 			if res, err := stream.Recv(); err != nil {
 				if !errors.Is(err, io.EOF) {
 					fmt.Println("error: ", err)
@@ -186,4 +213,7 @@ func HelloBiStreams() {
 			}
 		}
 	}
+
+	trailerMD := stream.Trailer()
+	fmt.Println("trailer: ", trailerMD)
 }
